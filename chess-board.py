@@ -69,44 +69,44 @@ class Piece:
     #app.uploadImage(route, (self.x*60+8, self.y*60+10))
 
 #algToPosition converts from the algebraic notation to the matrix position
-def algToPosition((x, y)):
-  return (ord(x)-97, 8-y)
+def algToPosition(pos):
+  return (ord(pos[0])-97, 8-(ord(pos[1])-48))
 
-#algToPosition converts from the matrix position to the algebraic notation
+#positionToAlg converts from the matrix position to the algebraic notation
 def positionToAlg((x,y)):
-  return (chr(x+97), 8-y)
+  return chr(x+97) + chr(y+48)
 
 class Board:
   def __init__(self):
-    self.m = [[0 for x in range(8)] for y in range(8)]
+    self.m = [[None for x in range(8)] for y in range(8)]
 
   #sets the standard starting position
   def setStandard(self, app):
     # pawns
     for x in range(0, 8):
-      self.setPiece("pawn", "white", positionToAlg((x, 6)), app)
+      self.setPiece("pawn", "white", chr(x+97)+'2', app)
     for x in range(0, 8):
-      self.setPiece("pawn", "black", positionToAlg((x, 1)), app)
+      self.setPiece("pawn", "black", chr(x+97)+'7', app)
 
     # other pieces white
-    self.setPiece("rook", "white", ('a',1), app)
-    self.setPiece("knight", "white", ('b',1), app)
-    self.setPiece("bishop", "white", ('c',1), app)
-    self.setPiece("queen", "white", ('d',1), app)
-    self.setPiece("king", "white", ('e',1), app)
-    self.setPiece("bishop", "white", ('f',1), app)
-    self.setPiece("knight", "white", ('g',1), app)
-    self.setPiece("rook", "white", ('h',1), app)
+    self.setPiece("rook", "white", 'a1', app)
+    self.setPiece("knight", "white", 'b1', app)
+    self.setPiece("bishop", "white", 'c1', app)
+    self.setPiece("queen", "white", 'd1', app)
+    self.setPiece("king", "white", 'e1', app)
+    self.setPiece("bishop", "white", 'f1', app)
+    self.setPiece("knight", "white", 'g1', app)
+    self.setPiece("rook", "white", 'h1', app)
 
     # other pieces black
-    self.setPiece("rook", "black", ('a',8), app)
-    self.setPiece("knight", "black", ('b',8), app)
-    self.setPiece("bishop", "black", ('c',8), app)
-    self.setPiece("queen", "black", ('d',8), app)
-    self.setPiece("king", "black", ('e',8), app)
-    self.setPiece("bishop", "black", ('f',8), app)
-    self.setPiece("knight", "black", ('g',8), app)
-    self.setPiece("rook", "black", ('h',8), app)
+    self.setPiece("rook", "black", 'a8', app)
+    self.setPiece("knight", "black", 'b8', app)
+    self.setPiece("bishop", "black", 'c8', app)
+    self.setPiece("queen", "black", 'd8', app)
+    self.setPiece("king", "black", 'e8', app)
+    self.setPiece("bishop", "black", 'f8', app)
+    self.setPiece("knight", "black", 'g8', app)
+    self.setPiece("rook", "black", 'h8', app)
 
   def setPiece(self, kind, color, alg, app):
     (x,y) = algToPosition(alg)
@@ -118,27 +118,40 @@ class Board:
     (fromX, fromY) = algToPosition(algFrom)
     (toX, toY) = algToPosition(algTo)
 
+    if self.m[toX][toY] is not None:
+      self.m[toX][toY].bitmap.Destroy() # delete eaten piece
+      print "Eating piece"
+
     self.m[toX][toY] = self.m[fromX][fromY]
 
-    self.m[fromX][fromY].bitmap.Destroy()
+
+    self.m[fromX][fromY].bitmap.Destroy() # delete moving piece
     self.m[toX][toY].x = toX
     self.m[toX][toY].y = toY
 
-    print(toX)
-    print(toY)
-    print (self.m[toX][toY])
     self.m[toX][toY].show(app)
 
-    self.m[fromX][fromY] = 0
+    self.m[fromX][fromY] = None
 
 class App(wx.App):
   def uploadImage(self, route, position=(0,0), size=60):
     self.image = wx.Image(route, wx.BITMAP_TYPE_ANY, -1).Rescale(size, size) # auto-detect file type
     self.bitmap = wx.StaticBitmap(self.frame.panel, -1, wx.BitmapFromImage(self.image), position)
 
+  def OnEnter(self, event):
+    move = self.tcMoves.GetValue()
+    ### For now, only accepting the moves "AXBY" where AX is the initial position and BY is the final position
+    fromPosition, toPosition = move[:2], move[2:]
+    self.board.movePiece(fromPosition, toPosition, self)
+
+
+    self.tcMoves.SetValue("")
+    print "Moving from " + fromPosition + " to " + toPosition
+
   def OnInit(self):
     self.frame = Frame(parent=None, id=-1, title='Dynamic chess board')
     self.frame.Show()
+
 
     self.SetTopWindow(self.frame)
 
@@ -146,10 +159,17 @@ class App(wx.App):
     self.uploadImage("images/board.png", (0,0), 500)
 
     # sets the standard starting position
-    b = Board()
-    b.setStandard(self)
+    self.board = Board()
+    self.board.setStandard(self)
 
-    b.movePiece(('e', 2), ('e', 4), self)
+    #self.board.movePiece(('e', 2), ('e', 4), self)
+
+    self.tcMoves = wx.TextCtrl(self.frame.panel, style=wx.TE_MULTILINE|wx.TE_PROCESS_ENTER, pos=(200, 510), size=(140, 30))
+
+    self.tcMoves.Bind(wx.EVT_TEXT_ENTER, self.OnEnter, self.tcMoves)
+    self.tcMoves.SetFocus()
+
+
 
     
 
@@ -159,3 +179,6 @@ if __name__ == "__main__":
   # make an App object, set stdout to the console so we can see errors
   app = App(redirect=False)
   app.MainLoop()
+
+##################
+  
