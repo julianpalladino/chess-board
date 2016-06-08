@@ -55,18 +55,19 @@ class Frame(wx.Frame):
     self.Destroy()
 
 class Piece:
-  def __init__(self, k, c, (x, y)):
+  def __init__(self, k, c, (x, y), app):
+    self.app = app
     self.kind = k
     self.color = c
     self.x = x
     self.y = y
 
-  def show(self, app):
+  def show(self):
     route = "images/" + self.color + "_" + self.kind + ".png"
     self.image = wx.Image(route, wx.BITMAP_TYPE_ANY, -1).Rescale(60, 60) # auto-detect file type
-    self.bitmap = wx.StaticBitmap(app.frame.panel, -1, wx.BitmapFromImage(self.image), (self.x*60+8, self.y*60+10))
+    self.bitmap = wx.StaticBitmap(self.app.frame.panel, -1, wx.BitmapFromImage(self.image), (self.x*60+8, self.y*60+10))
 
-    #app.uploadImage(route, (self.x*60+8, self.y*60+10))
+    #app.UploadImage(route, (self.x*60+8, self.y*60+10))
 
 #algToPosition converts from the algebraic notation to the matrix position
 def algToPosition(pos):
@@ -77,64 +78,84 @@ def positionToAlg((x,y)):
   return chr(x+97) + chr(y+48)
 
 class Board:
-  def __init__(self):
+  def __init__(self, app):
     self.m = [[None for x in range(8)] for y in range(8)]
+    self.app = app
+
+  def Turn(self):
+    return app.turnLabel.GetLabel()[0] # W if White to move, B if Black to move
+
+  def SwitchTurns(self):
+    if (self.Turn() == 'w'):
+      app.turnLabel.SetLabel("black to move")
+    else:
+      app.turnLabel.SetLabel("white to move")
 
   #sets the standard starting position
-  def setStandard(self, app):
+  def SetStandard(self):
     # pawns
     for x in range(0, 8):
-      self.setPiece("pawn", "white", chr(x+97)+'2', app)
+      self.SetPiece("pawn", "w", chr(x+97)+'2')
     for x in range(0, 8):
-      self.setPiece("pawn", "black", chr(x+97)+'7', app)
+      self.SetPiece("pawn", "b", chr(x+97)+'7')
 
     # other pieces white
-    self.setPiece("rook", "white", 'a1', app)
-    self.setPiece("knight", "white", 'b1', app)
-    self.setPiece("bishop", "white", 'c1', app)
-    self.setPiece("queen", "white", 'd1', app)
-    self.setPiece("king", "white", 'e1', app)
-    self.setPiece("bishop", "white", 'f1', app)
-    self.setPiece("knight", "white", 'g1', app)
-    self.setPiece("rook", "white", 'h1', app)
+    self.SetPiece("rook", "w", 'a1')
+    self.SetPiece("knight", "w", 'b1')
+    self.SetPiece("bishop", "w", 'c1')
+    self.SetPiece("queen", "w", 'd1')
+    self.SetPiece("king", "w", 'e1')
+    self.SetPiece("bishop", "w", 'f1')
+    self.SetPiece("knight", "w", 'g1')
+    self.SetPiece("rook", "w", 'h1')
 
     # other pieces black
-    self.setPiece("rook", "black", 'a8', app)
-    self.setPiece("knight", "black", 'b8', app)
-    self.setPiece("bishop", "black", 'c8', app)
-    self.setPiece("queen", "black", 'd8', app)
-    self.setPiece("king", "black", 'e8', app)
-    self.setPiece("bishop", "black", 'f8', app)
-    self.setPiece("knight", "black", 'g8', app)
-    self.setPiece("rook", "black", 'h8', app)
+    self.SetPiece("rook", "b", 'a8')
+    self.SetPiece("knight", "b", 'b8')
+    self.SetPiece("bishop", "b", 'c8')
+    self.SetPiece("queen", "b", 'd8')
+    self.SetPiece("king", "b", 'e8')
+    self.SetPiece("bishop", "b", 'f8')
+    self.SetPiece("knight", "b", 'g8')
+    self.SetPiece("rook", "b", 'h8')
 
-  def setPiece(self, kind, color, alg, app):
+  def SetPiece(self, kind, color, alg):
     (x,y) = algToPosition(alg)
-    p = Piece(kind, color, (x,y))
-    p.show(app)
+    p = Piece(kind, color, (x,y), self.app)
+    p.show()
     self.m[x][y] = p
 
-  def movePiece(self, algFrom, algTo, app):
+  def MovePiece(self, algFrom, algTo):
     (fromX, fromY) = algToPosition(algFrom)
     (toX, toY) = algToPosition(algTo)
 
-    if self.m[toX][toY] is not None:
-      self.m[toX][toY].bitmap.Destroy() # delete eaten piece
-      print "Eating piece"
+    if (self.m[fromX][fromY].color == self.Turn()): # if the piece matches the color to move
 
-    self.m[toX][toY] = self.m[fromX][fromY]
+      if self.m[toX][toY] is not None:
+        self.m[toX][toY].bitmap.Destroy() # delete eaten piece
+        print "Eating piece"
+
+      self.m[toX][toY] = self.m[fromX][fromY]
 
 
-    self.m[fromX][fromY].bitmap.Destroy() # delete moving piece
-    self.m[toX][toY].x = toX
-    self.m[toX][toY].y = toY
+      self.m[fromX][fromY].bitmap.Destroy() # delete moving piece
+      self.m[toX][toY].x = toX
+      self.m[toX][toY].y = toY
 
-    self.m[toX][toY].show(app)
+      self.m[toX][toY].show()
 
-    self.m[fromX][fromY] = None
+      self.m[fromX][fromY] = None
+
+      self.SwitchTurns()
+
+      print "Moving from " + algFrom + " to " + algTo
+    else:
+      print "Not your turn!"
 
 class App(wx.App):
-  def uploadImage(self, route, position=(0,0), size=60):
+
+
+  def UploadImage(self, route, position=(0,0), size=60):
     self.image = wx.Image(route, wx.BITMAP_TYPE_ANY, -1).Rescale(size, size) # auto-detect file type
     self.bitmap = wx.StaticBitmap(self.frame.panel, -1, wx.BitmapFromImage(self.image), position)
 
@@ -142,11 +163,9 @@ class App(wx.App):
     move = self.tcMoves.GetValue()
     ### For now, only accepting the moves "AXBY" where AX is the initial position and BY is the final position
     fromPosition, toPosition = move[:2], move[2:]
-    self.board.movePiece(fromPosition, toPosition, self)
-
+    self.board.MovePiece(fromPosition, toPosition)
 
     self.tcMoves.SetValue("")
-    print "Moving from " + fromPosition + " to " + toPosition
 
   def OnInit(self):
     self.frame = Frame(parent=None, id=-1, title='Dynamic chess board')
@@ -156,15 +175,18 @@ class App(wx.App):
     self.SetTopWindow(self.frame)
 
     # uploads board
-    self.uploadImage("images/board.png", (0,0), 500)
+    self.UploadImage("images/board.png", (0,0), 500)
 
     # sets the standard starting position
-    self.board = Board()
-    self.board.setStandard(self)
+    self.board = Board(self)
+    self.board.SetStandard()
 
-    #self.board.movePiece(('e', 2), ('e', 4), self)
-
+    # textbox and label
     self.tcMoves = wx.TextCtrl(self.frame.panel, style=wx.TE_MULTILINE|wx.TE_PROCESS_ENTER, pos=(200, 510), size=(140, 30))
+    self.turnLabel = wx.StaticText(self.frame.panel, -1, "white to move", (50, 510), style=wx.ALIGN_CENTRE)
+    
+    #__init__(self, parent, id=-1, label=EmptyString, pos=DefaultPosition, size=DefaultSize, style=0, name=StaticTextNameStr) 
+
 
     self.tcMoves.Bind(wx.EVT_TEXT_ENTER, self.OnEnter, self.tcMoves)
     self.tcMoves.SetFocus()
